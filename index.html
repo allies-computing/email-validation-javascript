@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        
+        <title>Email validation with Javascript</title>
+
+        <!-- Latest compiled and minified CSS -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        
+        <style>
+            body { padding: 5%; }
+            #email { margin-bottom: 20px; }
+        </style>
+
+        <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+        <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+        <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+        <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+        <![endif]-->
+    </head>
+    <body>
+
+        <div class="row">
+            <div class="col-xs-12">
+                <h1>Email validation with Javascript</h1>
+                
+                <p>Simple demo which passes email address to the API on form submit and shows a message based on response.</p>
+                <p>Including showing alternative suggestions for common typos such as gamil.com instead of gmail.com</p>
+                
+                <p><a href="https://developers.alliescomputing.com/postcoder-web-api/email-validation">Full email validation API documentation</a></p>
+                
+                <br><hr><br>
+                
+                <form id="example_form">
+                    <div class="form-group">
+                        <label for="email">Email address</label>
+                        <input type="email" class="form-control" id="email" placeholder="Email address" aria-required="true" aria-invalid="false" required>
+                    </div>
+                    <button type="submit" class="btn btn-default" id="validate">Validate</button>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            
+            // Replace with your API key, test key will always return true regardless of email address
+            var api_key = "PCW45-12345-12345-1234X";
+            
+            var example_form = document.getElementById("example_form");
+            
+            example_form.addEventListener("submit", function(e) {
+                e.preventDefault();
+                var email_field = document.getElementById("email");
+                validate_email(email_field);
+            });
+            
+            function validate_email(element) {
+                
+                // Grab the input text and trim any whitespace
+                var email_address = element.value.trim();
+                
+                if (email_address != "") {
+                
+                    // Remove any previous validation results
+                    var email_valid = document.getElementById("email_valid");
+                    if(email_valid) { email_valid.remove(); }
+                    
+                    // Create a template bootstrap alert div
+                    var response_html = document.createElement("div");
+                    response_html.setAttribute("class", "alert");
+                    response_html.setAttribute("role", "alert");
+                    response_html.setAttribute("id", "email_valid");
+                
+                    // Create the URL including API key and encoded email address
+                    var email_url = "https://ws.postcoder.com/pcw/" + api_key + "/emailaddress/" + encodeURIComponent(email_address);
+                    
+                    // Create a loading message
+                    var loading_html = document.createElement("div");
+                    loading_html.setAttribute("id","email_loading");
+                    loading_html.textContent = "Validating email address...";
+                    
+                    element.insertAdjacentElement("afterend", loading_html);
+
+                    // Call the API
+                    var email_request = new XMLHttpRequest();
+                    email_request.open("GET", email_url, true);
+                    
+                    email_request.onload = function () {
+                        if (email_request.status >= 200 && email_request.status < 400) {
+                            
+                            loading_html.remove();
+
+                            var data = JSON.parse(email_request.responseText);
+                            
+                            if(data.alternative) {
+                            
+                                // Add relevant class and message to alert template
+                                response_html.classList.add("alert-warning");
+                                response_html.textContent = "Did you mean: " + data.alternative + "? ";
+                            
+                                // Different role for ARIA, as the alert has an interactive element
+                                response_html.setAttribute("role", "alertdialog");
+
+                                // Create a button to help user swap to suggestion easily
+                                var change_button = document.createElement("button");
+                                change_button.setAttribute("class", "btn btn-default");
+                                change_button.setAttribute("type", "button");
+                                change_button.textContent = "Yes";
+                                change_button.onclick = function(e) {
+                                    e.preventDefault();
+
+                                    // Swaps the current input for the suggestion and re-run validation
+                                    element.value = data.alternative;
+                                    validate_email(element);
+                                }
+
+                                // Add button to alert template
+                                response_html.appendChild(change_button);
+
+                                // Add alert to page after email field element
+                                element.insertAdjacentElement("afterend", response_html);
+
+                            } else {
+
+                                if(data.valid === true) {
+
+                                    // Add relevant class and message to alert template
+                                    response_html.classList.add("alert-success");
+                                    response_html.textContent = "Email address valid";
+
+                                    // Add alert to page after email field element
+                                    element.insertAdjacentElement("afterend", response_html);
+                            
+                                    // Set ARIA-invalid attribute of field to false (means it is NOT invalid)
+                                    element.setAttribute("aria-invalid", "false");
+
+                                    // Note: If "score" is less 100, it may be a generic sales@ mailbox, disposable email address or a catch all server
+                                    // More info - https://www.alliescomputing.com/support/validating-email-addresses
+
+                                } else {
+
+                                    // Add relevant class and message to alert template
+                                    response_html.classList.add("alert-danger");
+                                    response_html.textContent = "Email address not valid: " + data.state;
+
+                                    // Add alert to page after email field element
+                                    element.insertAdjacentElement("afterend", response_html);
+                            
+                                    // Set ARIA-invalid attribute of field to true (means it IS invalid)
+                                    element.setAttribute("aria-invalid", "true");
+
+                                    // Full list of "state" responses - https://developers.alliescomputing.com/postcoder-web-api/email-validation
+
+                                }
+
+                            }
+                            
+                        } else {
+                            
+                            loading_html.remove();
+                            
+                            // Triggered if API does not return HTTP code between 200 and 399
+                            // More info - https://developers.alliescomputing.com/postcoder-web-api/error-handling
+                            
+                        }
+                        
+                    };
+                    
+                    email_request.onerror = function() {
+                        
+                        loading_html.remove();
+
+                        // Triggered if API cannot be reached
+                        // More info - https://developers.alliescomputing.com/postcoder-web-api/error-handling
+
+                    };
+
+                    email_request.send();
+                
+                }
+                
+            }
+
+        </script>
+    </body>
+</html>
